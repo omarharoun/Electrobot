@@ -3,14 +3,13 @@ from openai import OpenAI
 import time
 import sqlite3
 import bcrypt
-import os
+import os 
 
 # Load environment variables
 os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
 os.environ["assistant_id"] = st.secrets["assistant_id"]
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 assistant_id = os.getenv("assistant_id")
-
 
 # Initialize OpenAI Client
 client = OpenAI(api_key=OPENAI_API_KEY)
@@ -96,46 +95,51 @@ def main():
                 st.markdown(message["content"])
 
         # Chat Input
-        prompt = st.chat_input("Say something")
-        if prompt:
-            # Add user message to chat history
-            st.session_state.messages.append({"role": "user", "content": prompt})
-            with st.chat_message("user"):
-                st.markdown(prompt)
-            with st.spinner("Thinking..."):
-                try:
-                    # Add user message to thread
-                    client.beta.threads.messages.create(
-                        thread_id=st.session_state.thread_id,
-                        role="user",
-                        content=prompt
-                    )
-                    
-                    # Run the assistant
-                    run = client.beta.threads.runs.create(
-                        thread_id=st.session_state.thread_id,
-                        assistant_id=assistant_id
-                    )
-
-                    # Wait for the run to complete
-                    while run.status != "completed":
-                        time.sleep(1)
-                        run = client.beta.threads.runs.retrieve(
+        prompt = st.text_input("Say something")
+        if st.button("Send"):
+            if prompt:
+                # Add user message to chat history
+                st.session_state.messages.append({"role": "user", "content": prompt})
+                with st.chat_message("user"):
+                    st.markdown(prompt)
+                with st.spinner("Thinking..."):
+                    try:
+                        # Add user message to thread
+                        client.beta.threads.messages.create(
                             thread_id=st.session_state.thread_id,
-                            run_id=run.id
+                            role="user",
+                            content=prompt
+                        )
+                        
+                        # Run the assistant
+                        run = client.beta.threads.runs.create(
+                            thread_id=st.session_state.thread_id,
+                            assistant_id=assistant_id
                         )
 
-                    # Retrieve the assistant's response
-                    assistant_response = ""
-                    messages = get_chat_history(st.session_state.thread_id)
-                    for message in reversed(messages):
-                        if message.role == "assistant":
-                            assistant_response = message.content[0].text.value
-                            break
+                        # Wait for the run to complete
+                        while run.status != "completed":
+                            time.sleep(1)
+                            run = client.beta.threads.runs.retrieve(
+                                thread_id=st.session_state.thread_id,
+                                run_id=run.id
+                            )
 
-                    st.session_state.messages.append({"role": "assistant", "content": assistant_response})
-                except Exception as e:
-                    st.error(f"Error: {str(e)}")
+                        # Retrieve the assistant's response
+                        assistant_response = ""
+                        messages = get_chat_history(st.session_state.thread_id)
+                        for message in reversed(messages):
+                            if message.role == "assistant":
+                                assistant_response = message.content[0].text.value
+                                break
+
+                        st.session_state.messages.append({"role": "assistant", "content": assistant_response})
+                        
+                        # Trigger UI update
+                        st.experimental_rerun()
+
+                    except Exception as e:
+                        st.error(f"Error: {str(e)}")
 
 if __name__ == "__main__":
     main()
