@@ -6,8 +6,8 @@ import bcrypt
 import os
 
 # Load environment variables
-os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI"]["OPENAI_API_KEY"]
-os.environ["assistant_id"] = st.secrets["OPENAI"]["assistant_id"]
+os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
+os.environ["assistant_id"] = st.secrets["assistant_id"]
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 assistant_id = os.getenv("assistant_id")
 
