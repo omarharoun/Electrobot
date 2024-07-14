@@ -1,9 +1,8 @@
 import streamlit as st
-from openai import OpenAI
-import time
+from openai import OpenAI, Thread
 import sqlite3
 import bcrypt
-import os 
+import os
 
 # Load environment variables
 os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI_API_KEY"]
@@ -99,24 +98,24 @@ def main():
 
             # Chat Input and message handling
             prompt = st.text_input("Ask me anything...", key="input_key")
-            if st.session_state.input_key != prompt and prompt:
-                st.session_state.input_key = prompt
-                with st.spinner("Thinking..."):
-                    try:
-                        # Add user message to chat history
-                        st.session_state.messages.append({"role": "user", "content": prompt})
+            if st.button("Send"):
+                if prompt:
+                    with st.spinner("Thinking..."):
+                        try:
+                            # Add user message to chat history
+                            st.session_state.messages.append({"role": "user", "content": prompt})
 
-                        # Send user message to assistant
-                        client_response = client.ask('User:', prompt)
+                            # Send user message to assistant
+                            client_response = client.beta.threads.create_message(thread_id=st.session_state.thread_id, role="user", content={"text": prompt})
 
-                        # Add assistant response to chat history
-                        st.session_state.messages.append({"role": "assistant", "content": client_response})
+                            # Add assistant response to chat history
+                            st.session_state.messages.append({"role": "assistant", "content": client_response})
 
-                        # Clear input field after sending message
-                        st.session_state.input_key = ""
+                            # Clear input field after sending message
+                            st.session_state.input_key = ""
 
-                    except Exception as e:
-                        st.error(f"Error: {str(e)}")
+                        except Exception as e:
+                            st.error(f"Error: {str(e)}")
 
 if __name__ == "__main__":
     main()
