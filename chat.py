@@ -3,7 +3,7 @@ from openai import OpenAI
 import time
 import sqlite3
 import bcrypt
-
+import os 
 os.environ["OPENAI_API_KEY"] == st.secrets["OPENAI_API_KEY"]
 os.environ["assistant_id"] == st.secrets["assistant_id"]
 
