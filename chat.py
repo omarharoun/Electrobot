@@ -54,34 +54,37 @@ def get_chat_history(thread_id):
 def main():
     st.title("AI Assistant Chat")
     init_db()
-    
-    # Sidebar for Login
-    with st.sidebar:
-        st.header("Login")
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        if st.button("Login"):
-            if username and password:
-                thread_id = verify_user(username, password)
-                if thread_id:
-                    st.session_state.thread_id = thread_id
-                    st.session_state.username = username
-                    st.success(f"Logged in as {username}")
-                else:
-                    st.session_state.thread_id = create_user(username, password)
-                    st.session_state.username = username
-                    st.success(f"New user created: {username}")
-            else:
-                st.error("Please enter both username and password")
 
-    # Main chat interface
+    # Sidebar for Login
+    st.sidebar.header("Login")
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
+    login_button = st.sidebar.button("Login")
+
+    # Handle login and main chat interface
+    if login_button:
+        if username and password:
+            thread_id = verify_user(username, password)
+            if thread_id:
+                st.session_state.thread_id = thread_id
+                st.session_state.username = username
+                st.success(f"Logged in as {username}")
+            else:
+                st.session_state.thread_id = create_user(username, password)
+                st.session_state.username = username
+                st.success(f"New user created: {username}")
+        else:
+            st.error("Please enter both username and password")
+
+    # Display chat interface if logged in
     if 'username' in st.session_state:
         st.write(f"Logged in as: {st.session_state.username}")
+
         # Initialize messages in session state
         if 'messages' not in st.session_state:
             st.session_state.messages = []
-        
-        # Retrieve chat history
+
+        # Retrieve and display chat history
         if 'thread_id' in st.session_state:
             chat_history = get_chat_history(st.session_state.thread_id)
             for message in reversed(chat_history):
@@ -89,55 +92,28 @@ def main():
                 content = message.content[0].text.value
                 st.session_state.messages.append({"role": role, "content": content})
 
-        # Display chat messages
-        for message in st.session_state.messages:
-            with st.chat_message(message["role"]):
-                st.markdown(message["content"])
+            # Display chat messages
+            for message in st.session_state.messages:
+                with st.chat_message(message["role"]):
+                    st.markdown(message["content"])
 
-        # Chat Input
-        prompt = st.text_input("Say something")
-        if st.button("Send"):
-            if prompt:
-                # Add user message to chat history
-                st.session_state.messages.append({"role": "user", "content": prompt})
-                with st.chat_message("user"):
-                    st.markdown(prompt)
+            # Chat Input and message handling
+            prompt = st.text_input("Ask me anything...", key="input_key")
+            if st.session_state.input_key != prompt and prompt:
+                st.session_state.input_key = prompt
                 with st.spinner("Thinking..."):
                     try:
-                        # Add user message to thread
-                        client.beta.threads.messages.create(
-                            thread_id=st.session_state.thread_id,
-                            role="user",
-                            content=prompt
-                        )
-                        
-                        # Run the assistant
-                        run = client.beta.threads.runs.create(
-                            thread_id=st.session_state.thread_id,
-                            assistant_id=assistant_id
-                        )
+                        # Add user message to chat history
+                        st.session_state.messages.append({"role": "user", "content": prompt})
 
-                        # Wait for the run to complete
-                        while run.status != "completed":
-                            time.sleep(1)
-                            run = client.beta.threads.runs.retrieve(
-                                thread_id=st.session_state.thread_id,
-                                run_id=run.id
-                            )
+                        # Send user message to assistant
+                        client_response = client.ask('User:', prompt)
 
-                        # Retrieve the assistant's response
-                        assistant_response = ""
-                        messages = get_chat_history(st.session_state.thread_id)
-                        for message in reversed(messages):
-                            if message.role == "assistant":
-                                assistant_response = message.content[0].text.value
-                                break
+                        # Add assistant response to chat history
+                        st.session_state.messages.append({"role": "assistant", "content": client_response})
 
-                        st.session_state.messages.append({"role": "assistant", "content": assistant_response})
-                        
-                        # Clear input prompt and trigger UI update
-                        st.text_input("Say something", value="", key="input_key")
-                        st.experimental_rerun()
+                        # Clear input field after sending message
+                        st.session_state.input_key = ""
 
                     except Exception as e:
                         st.error(f"Error: {str(e)}")
