@@ -136,7 +136,7 @@ def main():
                         st.session_state.messages.append({"role": "assistant", "content": assistant_response})
                         
                         # Clear input prompt and trigger UI update
-                        st.text_input("Say something", value="", key="input_key")
+                        st.text_input(value="", key="input_key")
                         st.experimental_rerun()
 
                     except Exception as e:
