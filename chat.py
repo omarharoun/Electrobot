@@ -50,6 +50,12 @@ def get_chat_history(thread_id):
         st.error(f"Error retrieving chat history: {str(e)}")
         return []
 
+def send_message(thread_id, content):
+    try:
+        client.beta.threads.send_message(thread_id=thread_id, content=content)
+    except Exception as e:
+        st.error(f"Error sending message: {str(e)}")
+
 # Streamlit app
 def main():
     st.title("AI Assistant Chat")
@@ -98,22 +104,27 @@ def main():
                     st.markdown(message["content"])
 
             # Chat Input and message handling
-            prompt = st.text_input("Ask me anything...", key="input_key")
-            if st.session_state.input_key != prompt and prompt:
-                st.session_state.input_key = prompt
+            prompt = st.text_input("Ask me anything...")
+            if st.button("Send") or (st.session_state.input_prompt != prompt and prompt):
+                st.session_state.input_prompt = prompt
                 with st.spinner("Thinking..."):
                     try:
                         # Add user message to chat history
                         st.session_state.messages.append({"role": "user", "content": prompt})
 
                         # Send user message to assistant
-                        client_response = client.ask('User:', prompt)
+                        send_message(st.session_state.thread_id, prompt)
 
-                        # Add assistant response to chat history
-                        st.session_state.messages.append({"role": "assistant", "content": client_response})
+                        # Get and add assistant response to chat history
+                        response = client.beta.threads.create_message(
+                            thread_id=st.session_state.thread_id,
+                            role="assistant",
+                            content={"text": prompt},
+                        )
+                        st.session_state.messages.append({"role": "assistant", "content": response})
 
                         # Clear input field after sending message
-                        st.session_state.input_key = ""
+                        st.session_state.input_prompt = ""
 
                     except Exception as e:
                         st.error(f"Error: {str(e)}")
