@@ -101,6 +101,57 @@ def main():
             # Display chat messages
             for message in st.session_state.messages:
                 with st.chat_message(message["role"]):
+                def send_message(thread_id, content):
+    try:
+        client.beta.threads.create_message(thread_id=thread_id, role="user", content={"text": content})
+    except Exception as e:
+        st.error(f"Error sending message: {str(e)}")
+
+# Streamlit app
+def main():
+    st.title("AI Assistant Chat")
+    init_db()
+
+    # Sidebar for Login
+    st.sidebar.header("Login")
+    username = st.sidebar.text_input("Username")
+    password = st.sidebar.text_input("Password", type="password")
+    login_button = st.sidebar.button("Login")
+
+    # Handle login and main chat interface
+    if login_button:
+        if username and password:
+            thread_id = verify_user(username, password)
+            if thread_id:
+                st.session_state.thread_id = thread_id
+                st.session_state.username = username
+                st.success(f"Logged in as {username}")
+            else:
+                st.session_state.thread_id = create_user(username, password)
+                st.session_state.username = username
+                st.success(f"New user created: {username}")
+        else:
+            st.error("Please enter both username and password")
+
+    # Display chat interface if logged in
+    if 'username' in st.session_state:
+        st.write(f"Logged in as: {st.session_state.username}")
+
+        # Initialize messages in session state
+        if 'messages' not in st.session_state:
+            st.session_state.messages = []
+
+        # Retrieve and display chat history
+        if 'thread_id' in st.session_state:
+            chat_history = get_chat_history(st.session_state.thread_id)
+            for message in reversed(chat_history):
+                role = "user" if message.role == "user" else "assistant"
+                content = message.content[0].text.value
+                st.session_state.messages.append({"role": role, "content": content})
+
+            # Display chat messages
+            for message in st.session_state.messages:
+                with st.chat_message(message["role"]):
                     st.markdown(message["content"])
 
             # Chat Input and message handling
@@ -114,14 +165,6 @@ def main():
 
                         # Send user message to assistant
                         send_message(st.session_state.thread_id, prompt)
-
-                        # Get and add assistant response to chat history
-                        response = client.beta.threads.create_message(
-                            thread_id=st.session_state.thread_id,
-                            role="assistant",
-                            content={"text": prompt},
-                        )
-                        st.session_state.messages.append({"role": "assistant", "content": response})
 
                         # Clear input field after sending message
                         st.session_state.input_prompt = ""
