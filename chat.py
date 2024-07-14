@@ -3,7 +3,14 @@ from openai import OpenAI
 import time
 import sqlite3
 import bcrypt
-from config import OPENAI_API_KEY, assistant_id
+import os
+
+# Load environment variables
+os.environ["OPENAI_API_KEY"] = st.secrets["OPENAI"]["OPENAI_API_KEY"]
+os.environ["assistant_id"] = st.secrets["OPENAI"]["assistant_id"]
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+assistant_id = os.getenv("assistant_id")
+
 
 # Initialize OpenAI Client
 client = OpenAI(api_key=OPENAI_API_KEY)
