@@ -1,8 +1,6 @@
 import streamlit as st
 from openai import OpenAI
 import time
-import sqlite3
-import bcrypt
 import os 
 
 # Load environment variables
@@ -14,46 +12,9 @@ assistant_id = os.getenv("assistant_id")
 # Initialize OpenAI Client
 client = OpenAI(api_key=OPENAI_API_KEY)
 
-# Database setup
-def init_db():
-    conn = sqlite3.connect("users.db")
-    c = conn.cursor()
-    c.execute('''CREATE TABLE IF NOT EXISTS users (username TEXT PRIMARY KEY, password TEXT, thread_id TEXT)''')
-    conn.commit()
-    conn.close()
-
-def create_user(username, password):
-    hashed = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt())
-    thread = client.beta.threads.create()
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute("INSERT INTO users VALUES (?, ?, ?)", (username, hashed, thread.id))
-    conn.commit()
-    conn.close()
-    return thread.id
-
-def verify_user(username, password):
-    conn = sqlite3.connect('users.db')
-    c = conn.cursor()
-    c.execute("SELECT password, thread_id FROM users WHERE username=?", (username,))
-    result = c.fetchone()
-    conn.close()
-    if result and bcrypt.checkpw(password.encode('utf-8'), result[0]):
-        return result[1]  # Return thread_id
-    return None
-
-def get_chat_history(thread_id):
-    try:
-        messages = client.beta.threads.messages.list(thread_id=thread_id)
-        return messages.data
-    except Exception as e:
-        st.error(f"Error retrieving chat history: {str(e)}")
-        return []
-
 # Streamlit app
 def main():
     st.title("AI Assistant Chat")
-    init_db()
     
     # Sidebar for Login
     with st.sidebar:
@@ -61,34 +22,19 @@ def main():
         username = st.text_input("Username")
         password = st.text_input("Password", type="password")
         if st.button("Login"):
-            if username and password:
-                thread_id = verify_user(username, password)
-                if thread_id:
-                    st.session_state.thread_id = thread_id
-                    st.session_state.username = username
-                    st.success(f"Logged in as {username}")
-                else:
-                    st.session_state.thread_id = create_user(username, password)
-                    st.session_state.username = username
-                    st.success(f"New user created: {username}")
+            if username == "test" and password == "test":
+                st.session_state.username = username
+                st.success(f"Logged in as {username}")
             else:
-                st.error("Please enter both username and password")
+                st.error("Invalid username or password")
 
     # Main chat interface
-    if 'username' in st.session_state:
+    if 'username' in st.session_state and st.session_state.username == "test":
         st.write(f"Logged in as: {st.session_state.username}")
         # Initialize messages in session state
         if 'messages' not in st.session_state:
             st.session_state.messages = []
         
-        # Retrieve chat history
-        if 'thread_id' in st.session_state:
-            chat_history = get_chat_history(st.session_state.thread_id)
-            for message in reversed(chat_history):
-                role = "user" if message.role == "user" else "assistant"
-                content = message.content[0].text.value
-                st.session_state.messages.append({"role": role, "content": content})
-
         # Display chat messages
         for message in st.session_state.messages:
             with st.chat_message(message["role"]):
@@ -105,38 +51,16 @@ def main():
                 with st.spinner("Thinking..."):
                     try:
                         # Add user message to thread
-                        client.beta.threads.messages.create(
-                            thread_id=st.session_state.thread_id,
-                            role="user",
-                            content=prompt
-                        )
-                        
-                        # Run the assistant
-                        run = client.beta.threads.runs.create(
-                            thread_id=st.session_state.thread_id,
-                            assistant_id=assistant_id
+                        response = client.Completion.create(
+                            model="text-davinci-002",
+                            prompt=prompt,
+                            max_tokens=150
                         )
 
-                        # Wait for the run to complete
-                        while run.status != "completed":
-                            time.sleep(1)
-                            run = client.beta.threads.runs.retrieve(
-                                thread_id=st.session_state.thread_id,
-                                run_id=run.id
-                            )
-
-                        # Retrieve the assistant's response
-                        assistant_response = ""
-                        messages = get_chat_history(st.session_state.thread_id)
-                        for message in reversed(messages):
-                            if message.role == "assistant":
-                                assistant_response = message.content[0].text.value
-                                break
-
+                        assistant_response = response.choices[0].text.strip()
                         st.session_state.messages.append({"role": "assistant", "content": assistant_response})
                         
                         # Clear input prompt and trigger UI update
-                        prompt = ""
                         st.experimental_rerun()
 
                     except Exception as e:
